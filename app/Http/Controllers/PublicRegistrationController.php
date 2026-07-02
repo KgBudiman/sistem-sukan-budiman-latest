@@ -37,6 +37,8 @@ class PublicRegistrationController extends Controller
             return view('public.closed', ['settings' => Setting::allAsArray()]);
         }
 
+        $captcha = $this->generateCaptcha();
+
         return view('public.register', [
             'houses' => House::orderBy('name')->get(),
             'sports' => Sport::where('is_active', true)->withCount([
@@ -44,6 +46,8 @@ class PublicRegistrationController extends Controller
                 'waitingListRegistrations',
             ])->orderBy('category')->orderBy('name')->get(),
             'childAgeThreshold' => Participant::CHILD_AGE_THRESHOLD,
+            'adultAgeThreshold' => Participant::ADULT_AGE_THRESHOLD,
+            'captchaQuestion' => $captcha['question'],
         ]);
     }
 
@@ -54,59 +58,63 @@ class PublicRegistrationController extends Controller
         }
 
         $data = $request->validated();
-        $participant = DB::transaction(function () use ($data) {
-            $category = Participant::categoryForAge((int) $data['age']);
-            $participant = $this->findExistingParticipant($data, $category);
+        try {
+            $participant = DB::transaction(function () use ($data) {
+                $category = Participant::categoryForAge((int) $data['age']);
+                $participant = $this->findExistingParticipant($data, $category);
 
-            if ($participant && $participant->category !== $category) {
-                throw ValidationException::withMessages([
-                    'age' => 'Kategori umur tidak sepadan dengan rekod sedia ada. Sila hubungi urusetia untuk pembetulan.',
-                ]);
-            }
-
-            if (! $participant) {
-                $guardian = null;
-
-                if ($category === 'Kanak-Kanak') {
-                    $guardian = Guardian::create([
-                        'name' => $data['guardian_name'],
-                        'phone' => $data['guardian_phone'],
-                        'relationship' => $data['guardian_relationship'],
+                if ($participant && $participant->category !== $category) {
+                    throw ValidationException::withMessages([
+                        'age' => 'Kategori umur tidak sepadan dengan rekod sedia ada. Sila hubungi urusetia untuk pembetulan.',
                     ]);
                 }
 
-                $participant = Participant::create([
-                    'registration_code' => $this->generateRegistrationCode(),
-                    'name' => $data['name'],
-                    'age' => $data['age'],
-                    'phone' => $data['phone'] ?? null,
-                    'category' => $category,
-                    'house_id' => $data['house_id'],
-                    'guardian_id' => $guardian?->id,
-                    'status' => 'Aktif',
-                ]);
-            }
+                if (! $participant) {
+                    $guardian = null;
 
-            $existingSportIds = $participant->sportRegistrations()->pluck('sport_id')->all();
-            $newSportIds = collect($data['sport_ids'])->map(fn ($id) => (int) $id)->diff($existingSportIds)->values();
+                    if ($category === Participant::CATEGORY_CHILD) {
+                        $guardian = Guardian::create([
+                            'name' => $data['guardian_name'],
+                            'phone' => $data['guardian_phone'],
+                            'relationship' => $data['guardian_relationship'],
+                        ]);
+                    }
 
-            if ($newSportIds->isEmpty()) {
-                throw ValidationException::withMessages([
-                    'sport_ids' => 'Peserta ini telah didaftarkan untuk semua acara yang dipilih.',
-                ]);
-            }
+                    $participant = Participant::create([
+                        'registration_code' => $this->generateRegistrationCode(),
+                        'name' => $data['name'],
+                        'age' => $data['age'],
+                        'phone' => $data['phone'] ?? null,
+                        'category' => $category,
+                        'house_id' => $data['house_id'],
+                        'guardian_id' => $guardian?->id,
+                        'status' => 'Aktif',
+                    ]);
+                }
 
-            foreach ($newSportIds as $sportId) {
-                $sport = Sport::lockForUpdate()->findOrFail($sportId);
-                SportRegistration::create([
-                    'participant_id' => $participant->id,
-                    'sport_id' => $sport->id,
-                    'status' => $sport->hasCapacity() ? 'Diterima' : 'Senarai Menunggu',
-                ]);
-            }
+                $existingSportIds = $participant->sportRegistrations()->pluck('sport_id')->all();
+                $newSportIds = collect($data['sport_ids'])->map(fn ($id) => (int) $id)->diff($existingSportIds)->values();
 
-            return $participant;
-        });
+                if ($newSportIds->isEmpty()) {
+                    throw ValidationException::withMessages([
+                        'sport_ids' => 'Peserta ini telah didaftarkan untuk semua acara yang dipilih.',
+                    ]);
+                }
+
+                foreach ($newSportIds as $sportId) {
+                    $sport = Sport::lockForUpdate()->findOrFail($sportId);
+                    SportRegistration::create([
+                        'participant_id' => $participant->id,
+                        'sport_id' => $sport->id,
+                        'status' => $sport->hasCapacity() ? 'Diterima' : 'Senarai Menunggu',
+                    ]);
+                }
+
+                return $participant;
+            });
+        } finally {
+            $request->session()->forget('registration_captcha_answer');
+        }
 
         return redirect()->route('public.success', $participant->registration_code);
     }
@@ -171,13 +179,22 @@ class PublicRegistrationController extends Controller
             return $query->where('phone', $data['phone'])->first();
         }
 
-        if ($category === 'Kanak-Kanak' && ! empty($data['guardian_phone'])) {
+        if ($category === Participant::CATEGORY_CHILD && ! empty($data['guardian_phone'])) {
             return $query
                 ->whereHas('guardian', fn ($query) => $query->where('phone', $data['guardian_phone']))
                 ->first();
         }
 
         return null;
+    }
+
+    private function generateCaptcha(): array
+    {
+        $first = random_int(2, 9);
+        $second = random_int(1, 9);
+        session(['registration_captcha_answer' => $first + $second]);
+
+        return ['question' => "{$first} + {$second} = ?"];
     }
 
     private function normalizeSearch(string $search): string

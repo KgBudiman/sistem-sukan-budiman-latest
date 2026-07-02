@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Participant;
 use App\Models\Sport;
 use App\Support\PhoneNumber;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -28,7 +29,7 @@ class StoreParticipantRequest extends FormRequest
     {
         $age = (int) $this->input('age');
         $category = Participant::categoryForAge($age);
-        $isChild = $age > 0 && $category === 'Kanak-Kanak';
+        $isChild = $age > 0 && $category === Participant::CATEGORY_CHILD;
 
         return [
             'name' => [
@@ -56,6 +57,18 @@ class StoreParticipantRequest extends FormRequest
             'guardian_name' => [$isChild ? 'required' : 'nullable', 'string', 'max:255'],
             'guardian_phone' => [$isChild ? 'required' : 'nullable', 'string', 'max:20', 'regex:/^(\\+?6?01)[0-9]-?[0-9]{7,8}$/'],
             'guardian_relationship' => [$isChild ? 'required' : 'nullable', 'string', 'max:100'],
+            'captcha_answer' => [
+                'required',
+                'integer',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    $expectedAnswer = $this->session()->get('registration_captcha_answer');
+
+                    if ($expectedAnswer === null || (int) $value !== (int) $expectedAnswer) {
+                        $fail('Jawapan captcha tidak tepat. Sila cuba lagi.');
+                    }
+                },
+            ],
+            'consent_agreement' => ['accepted'],
         ];
     }
 
@@ -71,11 +84,21 @@ class StoreParticipantRequest extends FormRequest
         ]);
     }
 
+    protected function failedValidation(Validator $validator): void
+    {
+        $this->session()->forget('registration_captcha_answer');
+
+        parent::failedValidation($validator);
+    }
+
     public function messages(): array
     {
         return [
             '*.required' => 'Medan ini wajib diisi.',
             '*.regex' => 'Sila masukkan nombor telefon Malaysia yang sah.',
+            'captcha_answer.required' => 'Sila jawab soalan captcha.',
+            'captcha_answer.integer' => 'Jawapan captcha mesti dalam nombor.',
+            'consent_agreement.accepted' => 'Sila sahkan persetujuan sebelum menghantar pendaftaran.',
             'sport_ids.required' => 'Sila pilih sekurang-kurangnya satu acara.',
             'sport_ids.*.exists' => 'Acara yang dipilih tidak tersedia.',
             'sport_ids.*' => 'Acara yang dipilih tidak sesuai dengan kategori umur peserta.',

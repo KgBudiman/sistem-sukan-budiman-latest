@@ -12,7 +12,7 @@
     <div>
         <label class="kb-label" for="category">Kategori</label>
         <select class="kb-input" id="category" name="category" required>
-            @foreach (['Kanak-Kanak', 'Dewasa', 'Terbuka'] as $category)
+            @foreach (\App\Models\Participant::SPORT_CATEGORIES as $category)
                 <option value="{{ $category }}" @selected(old('category', $sport->category) === $category)>{{ $category }}</option>
             @endforeach
         </select>

@@ -9,7 +9,7 @@
     @method('PUT')
 @endif
 
-<div class="grid gap-4 sm:grid-cols-2" x-data="{ age: '{{ old('age', $participant->age) }}', category() { return Number(this.age) > 0 && Number(this.age) < {{ \App\Models\Participant::CHILD_AGE_THRESHOLD }} ? 'Kanak-Kanak' : (Number(this.age) >= {{ \App\Models\Participant::CHILD_AGE_THRESHOLD }} ? 'Dewasa' : 'Ditentukan melalui umur') }, compatible(sportCategory) { return this.category() === 'Ditentukan melalui umur' || sportCategory === 'Terbuka' || sportCategory === this.category() } }">
+<div class="grid gap-4 sm:grid-cols-2" x-data="{ age: '{{ old('age', $participant->age) }}', category() { const participantAge = Number(this.age); if (participantAge <= 0) return 'Ditentukan melalui umur'; if (participantAge < {{ \App\Models\Participant::CHILD_AGE_THRESHOLD }}) return 'Kanak-Kanak'; if (participantAge < {{ \App\Models\Participant::ADULT_AGE_THRESHOLD }}) return 'Remaja'; return 'Dewasa' }, compatible(sportCategory) { return this.category() === 'Ditentukan melalui umur' || sportCategory === 'Terbuka' || sportCategory === this.category() } }">
     <div class="sm:col-span-2">
         <label class="kb-label" for="name">Nama peserta</label>
         <input class="kb-input" id="name" name="name" value="{{ old('name', $participant->name) }}" required>
@@ -23,7 +23,7 @@
     <div>
         <label class="kb-label" for="phone">Nombor telefon</label>
         <input class="kb-input" id="phone" name="phone" value="{{ old('phone', $participant->phone) }}" x-bind:required="category() !== 'Kanak-Kanak'">
-        <p class="mt-1 text-xs text-stone-500">Wajib untuk peserta dewasa. Untuk kanak-kanak, nombor penjaga boleh digunakan.</p>
+        <p class="mt-1 text-xs text-stone-500">Wajib untuk peserta remaja/dewasa. Untuk kanak-kanak, nombor penjaga boleh digunakan.</p>
         @error('phone') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
     </div>
     <div>
