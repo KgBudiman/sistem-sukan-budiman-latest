@@ -8,12 +8,30 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Participant extends Model
 {
-    public const CHILD_AGE_THRESHOLD = 12;
+    public const CATEGORY_CHILD = 'Kanak-Kanak';
 
-    public static function categoryForAge(int $age): string
-    {
-        return $age < self::CHILD_AGE_THRESHOLD ? 'Kanak-Kanak' : 'Dewasa';
-    }
+    public const CATEGORY_TEENAGER = 'Remaja';
+
+    public const CATEGORY_ADULT = 'Dewasa';
+
+    public const CATEGORY_OPEN = 'Terbuka';
+
+    public const CHILD_AGE_THRESHOLD = 13;
+
+    public const ADULT_AGE_THRESHOLD = 18;
+
+    public const PARTICIPANT_CATEGORIES = [
+        self::CATEGORY_CHILD,
+        self::CATEGORY_TEENAGER,
+        self::CATEGORY_ADULT,
+    ];
+
+    public const SPORT_CATEGORIES = [
+        self::CATEGORY_CHILD,
+        self::CATEGORY_TEENAGER,
+        self::CATEGORY_ADULT,
+        self::CATEGORY_OPEN,
+    ];
 
     protected $fillable = [
         'registration_code',
@@ -26,6 +44,19 @@ class Participant extends Model
         'status',
         'notes',
     ];
+
+    public static function categoryForAge(int $age): string
+    {
+        if ($age < self::CHILD_AGE_THRESHOLD) {
+            return self::CATEGORY_CHILD;
+        }
+
+        if ($age < self::ADULT_AGE_THRESHOLD) {
+            return self::CATEGORY_TEENAGER;
+        }
+
+        return self::CATEGORY_ADULT;
+    }
 
     public function house(): BelongsTo
     {
@@ -44,6 +75,6 @@ class Participant extends Model
 
     public function getIsChildAttribute(): bool
     {
-        return self::categoryForAge((int) $this->age) === 'Kanak-Kanak';
+        return self::categoryForAge((int) $this->age) === self::CATEGORY_CHILD;
     }
 }

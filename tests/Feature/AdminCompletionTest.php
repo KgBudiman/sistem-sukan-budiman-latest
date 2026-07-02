@@ -124,6 +124,68 @@ class AdminCompletionTest extends TestCase
         ]);
     }
 
+    public function test_admin_create_derives_teenager_category_from_age(): void
+    {
+        $user = User::factory()->create();
+        $house = House::create(['name' => 'Rumah Merah']);
+        $sport = Sport::create(['name' => 'Acara Remaja Admin', 'category' => 'Remaja', 'is_active' => true]);
+
+        $this->actingAs($user)->post('/admin/participants', [
+            'name' => 'Peserta Admin Remaja',
+            'age' => 15,
+            'phone' => '0132222222',
+            'category' => 'Dewasa',
+            'house_id' => $house->id,
+            'status' => 'Aktif',
+            'sport_ids' => [$sport->id],
+            'sport_statuses' => [$sport->id => 'Diterima'],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('participants', [
+            'name' => 'Peserta Admin Remaja',
+            'category' => 'Remaja',
+            'guardian_id' => null,
+        ]);
+    }
+
+    public function test_admin_can_create_teenager_sport_category(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post('/admin/sports', [
+            'name' => 'Acara Khas Remaja',
+            'category' => 'Remaja',
+            'max_players_per_group' => 12,
+            'duration_minutes' => 20,
+            'is_active' => '1',
+        ])->assertRedirect('/admin/sports');
+
+        $this->assertDatabaseHas('sports', [
+            'name' => 'Acara Khas Remaja',
+            'category' => 'Remaja',
+        ]);
+    }
+
+    public function test_admin_category_forms_and_filters_include_teenager(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/admin/sports/create')
+            ->assertOk()
+            ->assertSee('Remaja');
+
+        $this->actingAs($user)
+            ->get('/admin/participants')
+            ->assertOk()
+            ->assertSee('Remaja');
+
+        $this->actingAs($user)
+            ->get('/admin/reports')
+            ->assertOk()
+            ->assertSee('Remaja');
+    }
+
     public function test_admin_can_update_multiple_event_registrations_with_statuses(): void
     {
         $user = User::factory()->create();
@@ -212,5 +274,44 @@ class AdminCompletionTest extends TestCase
 
         $this->assertDatabaseHas('participants', ['name' => 'Kategori Salah Kanak', 'category' => 'Kanak-Kanak']);
         $this->assertDatabaseHas('participants', ['name' => 'Kategori Salah Dewasa', 'category' => 'Dewasa']);
+    }
+
+    public function test_teenager_category_correction_migration_updates_existing_records(): void
+    {
+        $house = House::create(['name' => 'Rumah Kuning']);
+        Participant::create([
+            'registration_code' => 'SRKB-260703-FIX12',
+            'name' => 'Kategori Umur Dua Belas',
+            'age' => 12,
+            'phone' => '0124444444',
+            'category' => 'Dewasa',
+            'house_id' => $house->id,
+            'status' => 'Aktif',
+        ]);
+        Participant::create([
+            'registration_code' => 'SRKB-260703-FIX15',
+            'name' => 'Kategori Umur Lima Belas',
+            'age' => 15,
+            'phone' => '0125555555',
+            'category' => 'Dewasa',
+            'house_id' => $house->id,
+            'status' => 'Aktif',
+        ]);
+        Participant::create([
+            'registration_code' => 'SRKB-260703-FIX18',
+            'name' => 'Kategori Umur Lapan Belas',
+            'age' => 18,
+            'phone' => '0126666666',
+            'category' => 'Remaja',
+            'house_id' => $house->id,
+            'status' => 'Aktif',
+        ]);
+
+        $migration = include database_path('migrations/2026_07_03_000001_recalculate_participant_categories_for_teenagers.php');
+        $migration->up();
+
+        $this->assertDatabaseHas('participants', ['name' => 'Kategori Umur Dua Belas', 'category' => 'Kanak-Kanak']);
+        $this->assertDatabaseHas('participants', ['name' => 'Kategori Umur Lima Belas', 'category' => 'Remaja']);
+        $this->assertDatabaseHas('participants', ['name' => 'Kategori Umur Lapan Belas', 'category' => 'Dewasa']);
     }
 }

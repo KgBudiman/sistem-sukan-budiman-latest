@@ -15,7 +15,7 @@
                 <label class="kb-label" for="category">Kategori</label>
                 <select class="kb-input" id="category" name="category">
                     <option value="">Semua</option>
-                    @foreach (['Kanak-Kanak', 'Dewasa'] as $category)
+                    @foreach (\App\Models\Participant::PARTICIPANT_CATEGORIES as $category)
                         <option value="{{ $category }}">{{ $category }}</option>
                     @endforeach
                 </select>
