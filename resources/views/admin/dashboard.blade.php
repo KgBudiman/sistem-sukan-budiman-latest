@@ -4,8 +4,8 @@
     </x-slot>
 
     <div class="kb-container py-6">
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            @foreach ([['Jumlah Peserta', $totalParticipants], ['Kanak-Kanak', $childParticipants], ['Dewasa', $adultParticipants], ['Aktif', $activeParticipants]] as [$label, $value])
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            @foreach ([['Jumlah Peserta', $totalParticipants], ['Kanak-Kanak', $childParticipants], ['Remaja', $teenagerParticipants], ['Dewasa', $adultParticipants], ['Aktif', $activeParticipants]] as [$label, $value])
                 <div class="kb-card p-5">
                     <p class="text-sm font-semibold text-stone-500">{{ $label }}</p>
                     <p class="mt-2 text-3xl font-bold text-budiman-secondary">{{ $value }}</p>

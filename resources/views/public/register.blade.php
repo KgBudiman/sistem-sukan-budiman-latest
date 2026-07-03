@@ -11,7 +11,7 @@
         </div>
 
         <div class="kb-container py-10">
-            <form method="POST" action="{{ route('public.register.store') }}" class="kb-card mx-auto max-w-3xl space-y-6 p-5 sm:p-6" x-data="{ age: '{{ old('age') }}', category() { return Number(this.age) > 0 && Number(this.age) < {{ $childAgeThreshold }} ? 'Kanak-Kanak' : (Number(this.age) >= {{ $childAgeThreshold }} ? 'Dewasa' : 'Ditentukan melalui umur') }, compatible(sportCategory) { return this.category() === 'Ditentukan melalui umur' || sportCategory === 'Terbuka' || sportCategory === this.category() } }">
+            <form method="POST" action="{{ route('public.register.store') }}" class="kb-card mx-auto max-w-3xl space-y-6 p-5 sm:p-6" x-data="{ age: '{{ old('age') }}', category() { const participantAge = Number(this.age); if (participantAge <= 0) return 'Ditentukan melalui umur'; if (participantAge < {{ $childAgeThreshold }}) return 'Kanak-Kanak'; if (participantAge < {{ $adultAgeThreshold }}) return 'Remaja'; return 'Dewasa' }, compatible(sportCategory) { return this.category() === 'Ditentukan melalui umur' || sportCategory === 'Terbuka' || sportCategory === this.category() } }">
                 @csrf
 
                 <div class="grid gap-4 sm:grid-cols-2">
@@ -28,7 +28,7 @@
                     <div>
                         <label class="kb-label" for="phone">Nombor telefon</label>
                         <input class="kb-input" id="phone" name="phone" value="{{ old('phone') }}" placeholder="Contoh: 0123456789" x-bind:required="category() !== 'Kanak-Kanak'">
-                        <p class="mt-1 text-xs text-stone-500">Wajib untuk peserta dewasa. Untuk kanak-kanak, nombor penjaga boleh digunakan.</p>
+                        <p class="mt-1 text-xs text-stone-500">Wajib untuk peserta remaja/dewasa. Untuk kanak-kanak, nombor penjaga boleh digunakan.</p>
                         @error('phone') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
@@ -61,7 +61,7 @@
                                 </label>
                             @endforeach
                         </div>
-                        <p class="mt-2 text-xs text-stone-500">Acara Dewasa/Kanak-Kanak akan dipadankan mengikut umur. Acara Terbuka boleh disertai semua peserta. Jika acara penuh, pendaftaran anda akan dimasukkan ke Senarai Menunggu.</p>
+                        <p class="mt-2 text-xs text-stone-500">Acara Kanak-Kanak/Remaja/Dewasa akan dipadankan mengikut umur. Acara Terbuka boleh disertai semua peserta. Jika acara penuh, pendaftaran anda akan dimasukkan ke Senarai Menunggu.</p>
                         @error('sport_ids') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                         @error('sport_ids.*') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                     </div>
@@ -90,6 +90,22 @@
                             </select>
                             @error('guardian_relationship') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                         </div>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 border-t border-stone-200 pt-5 sm:grid-cols-2">
+                    <div>
+                        <label class="kb-label" for="captcha_answer">Captcha</label>
+                        <div class="rounded-xl border border-budiman-primary/10 bg-budiman-cream px-3 py-2 text-sm font-semibold text-budiman-primary">{{ $captchaQuestion }}</div>
+                        <input class="kb-input mt-2" id="captcha_answer" name="captcha_answer" type="number" inputmode="numeric" required>
+                        @error('captcha_answer') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
+                        <label class="flex items-start gap-3">
+                            <input class="mt-1 rounded border-stone-300 text-budiman-primary focus:ring-budiman-primary" type="checkbox" name="consent_agreement" value="1" required @checked(old('consent_agreement'))>
+                            <span>Saya mengesahkan maklumat yang diberikan adalah benar dan bersetuju maklumat ini digunakan oleh pihak penganjur untuk tujuan pendaftaran, pengurusan acara, keselamatan peserta, laporan dan komunikasi berkaitan Sukan Rakyat Kampung Budiman. Bagi peserta bawah 18 tahun, saya mengesahkan persetujuan ibu/bapa/penjaga telah diberikan.</span>
+                        </label>
+                        @error('consent_agreement') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
                     </div>
                 </div>
 

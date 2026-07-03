@@ -13,8 +13,9 @@ class DashboardController extends Controller
     {
         return view('admin.dashboard', [
             'totalParticipants' => Participant::count(),
-            'childParticipants' => Participant::where('category', 'Kanak-Kanak')->orWhere('age', '<', Participant::CHILD_AGE_THRESHOLD)->count(),
-            'adultParticipants' => Participant::where('category', 'Dewasa')->count(),
+            'childParticipants' => Participant::where('category', Participant::CATEGORY_CHILD)->count(),
+            'teenagerParticipants' => Participant::where('category', Participant::CATEGORY_TEENAGER)->count(),
+            'adultParticipants' => Participant::where('category', Participant::CATEGORY_ADULT)->count(),
             'activeParticipants' => Participant::where('status', 'Aktif')->count(),
             'participantsByHouse' => House::withCount('participants')->orderBy('name')->get(),
             'sports' => Sport::withCount('registrations')->orderBy('name')->get(),

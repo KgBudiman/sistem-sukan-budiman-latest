@@ -18,7 +18,7 @@
             </select>
             <select class="kb-input" name="category">
                 <option value="">Semua kategori</option>
-                @foreach (['Kanak-Kanak', 'Dewasa'] as $category)
+                @foreach (\App\Models\Participant::PARTICIPANT_CATEGORIES as $category)
                     <option value="{{ $category }}" @selected(request('category') === $category)>{{ $category }}</option>
                 @endforeach
             </select>

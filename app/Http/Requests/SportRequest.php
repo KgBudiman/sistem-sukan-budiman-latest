@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Participant;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,7 +27,7 @@ class SportRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('sports')->ignore($sportId)],
-            'category' => ['required', Rule::in(['Kanak-Kanak', 'Dewasa', 'Terbuka'])],
+            'category' => ['required', Rule::in(Participant::SPORT_CATEGORIES)],
             'max_players_per_group' => ['nullable', 'integer', 'min:1', 'max:999'],
             'duration_minutes' => ['nullable', 'integer', 'min:1', 'max:999'],
             'group_code' => ['nullable', 'string', 'max:50'],

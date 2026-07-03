@@ -14,12 +14,33 @@ class PublicRegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function register(array $data)
+    {
+        $this->withSession(['registration_captcha_answer' => 7]);
+
+        return $this->post('/daftar', $data + [
+            'captcha_answer' => 7,
+            'consent_agreement' => '1',
+        ]);
+    }
+
+    private function adultPayload(House $house, Sport $sport): array
+    {
+        return [
+            'name' => 'Peserta Captcha',
+            'age' => 25,
+            'phone' => '0123456789',
+            'house_id' => $house->id,
+            'sport_ids' => [$sport->id],
+        ];
+    }
+
     public function test_public_participant_can_register_and_receive_a_registration_code(): void
     {
         $house = House::create(['name' => 'Rumah Hijau']);
         $sport = Sport::create(['name' => 'Balloon Rush', 'category' => 'Dewasa', 'max_players_per_group' => 12, 'is_active' => true]);
 
-        $response = $this->post('/daftar', [
+        $response = $this->register([
             'name' => 'Ali Budiman',
             'age' => 25,
             'phone' => '0123456789',
@@ -44,7 +65,7 @@ class PublicRegistrationTest extends TestCase
         $house = House::create(['name' => 'Rumah Merah']);
         $sport = Sport::create(['name' => 'Pindah Cawan', 'category' => 'Kanak-Kanak', 'is_active' => true]);
 
-        $response = $this->post('/daftar', [
+        $response = $this->register([
             'name' => 'Amin Budiman',
             'age' => 8,
             'phone' => '0133456789',
@@ -72,7 +93,7 @@ class PublicRegistrationTest extends TestCase
         ]);
         SportRegistration::create(['participant_id' => $participant->id, 'sport_id' => $existingSport->id, 'status' => 'Diterima']);
 
-        $this->post('/daftar', [
+        $this->register([
             'name' => 'Ali Budiman',
             'age' => 20,
             'phone' => '+6012-3456789',
@@ -102,7 +123,7 @@ class PublicRegistrationTest extends TestCase
         ]);
         SportRegistration::create(['participant_id' => $participant->id, 'sport_id' => $sport->id, 'status' => 'Diterima']);
 
-        $this->post('/daftar', [
+        $this->register([
             'name' => 'Ali Budiman',
             'age' => 20,
             'phone' => '+6012-3456789',
@@ -116,7 +137,7 @@ class PublicRegistrationTest extends TestCase
         $house = House::create(['name' => 'Rumah Kuning']);
         $sport = Sport::create(['name' => 'Acara Tutup', 'category' => 'Terbuka', 'is_active' => false]);
 
-        $this->post('/daftar', [
+        $this->register([
             'name' => 'Siti Budiman',
             'age' => 18,
             'phone' => '0143456789',
@@ -130,7 +151,7 @@ class PublicRegistrationTest extends TestCase
         $house = House::create(['name' => 'Rumah Hijau']);
         $sport = Sport::create(['name' => 'Pindah Cawan', 'category' => 'Kanak-Kanak', 'is_active' => true]);
 
-        $this->post('/daftar', [
+        $this->register([
             'name' => 'Dewasa Budiman',
             'age' => 22,
             'phone' => '0163456789',
@@ -144,7 +165,7 @@ class PublicRegistrationTest extends TestCase
         $house = House::create(['name' => 'Rumah Hijau']);
         $sport = Sport::create(['name' => 'Balloon Rush', 'category' => 'Dewasa', 'is_active' => true]);
 
-        $this->post('/daftar', [
+        $this->register([
             'name' => 'Kanak Budiman',
             'age' => 11,
             'phone' => '0169999999',
@@ -161,7 +182,7 @@ class PublicRegistrationTest extends TestCase
         $house = House::create(['name' => 'Rumah Biru']);
         $sport = Sport::create(['name' => 'Radio Rosak', 'category' => 'Terbuka', 'is_active' => true]);
 
-        $this->post('/daftar', [
+        $this->register([
             'name' => 'Anak Budiman',
             'age' => 11,
             'phone' => '0153456789',
@@ -179,33 +200,79 @@ class PublicRegistrationTest extends TestCase
         ]);
     }
 
-    public function test_age_12_creates_adult_category_and_does_not_require_guardian(): void
+    public function test_age_12_creates_child_category_even_if_payload_is_tampered(): void
     {
         $house = House::create(['name' => 'Rumah Kuning']);
         $sport = Sport::create(['name' => 'Catch the Scammer', 'category' => 'Terbuka', 'is_active' => true]);
 
-        $this->post('/daftar', [
-            'name' => 'Remaja Budiman',
+        $this->register([
+            'name' => 'Kanak Dua Belas',
             'age' => 12,
             'phone' => '0193456789',
+            'category' => 'Dewasa',
+            'house_id' => $house->id,
+            'sport_ids' => [$sport->id],
+            'guardian_name' => 'Penjaga Dua Belas',
+            'guardian_phone' => '0124567890',
+            'guardian_relationship' => 'Ibu',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('participants', [
+            'name' => 'Kanak Dua Belas',
+            'category' => 'Kanak-Kanak',
+        ]);
+    }
+
+    public function test_teenager_age_boundaries_create_teenager_category_without_guardian(): void
+    {
+        $house = House::create(['name' => 'Rumah Kuning']);
+        $sport = Sport::create(['name' => 'Acara Terbuka Remaja', 'category' => 'Terbuka', 'is_active' => true]);
+
+        foreach ([13, 17] as $age) {
+            $this->register([
+                'name' => "Remaja {$age}",
+                'age' => $age,
+                'phone' => "01934567{$age}",
+                'category' => 'Dewasa',
+                'house_id' => $house->id,
+                'sport_ids' => [$sport->id],
+            ])->assertSessionHasNoErrors();
+
+            $this->assertDatabaseHas('participants', [
+                'name' => "Remaja {$age}",
+                'category' => 'Remaja',
+                'guardian_id' => null,
+            ]);
+        }
+    }
+
+    public function test_age_18_creates_adult_category_without_guardian(): void
+    {
+        $house = House::create(['name' => 'Rumah Kuning']);
+        $sport = Sport::create(['name' => 'Acara Dewasa Terbuka', 'category' => 'Terbuka', 'is_active' => true]);
+
+        $this->register([
+            'name' => 'Dewasa Lapan Belas',
+            'age' => 18,
+            'phone' => '0193456718',
             'category' => 'Kanak-Kanak',
             'house_id' => $house->id,
             'sport_ids' => [$sport->id],
         ])->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('participants', [
-            'name' => 'Remaja Budiman',
+            'name' => 'Dewasa Lapan Belas',
             'category' => 'Dewasa',
             'guardian_id' => null,
         ]);
     }
 
-    public function test_open_event_accepts_both_child_and_adult_categories(): void
+    public function test_open_event_accepts_child_teenager_and_adult_categories(): void
     {
         $house = House::create(['name' => 'Rumah Merah']);
         $sport = Sport::create(['name' => 'Radio Rosak', 'category' => 'Terbuka', 'max_players_per_group' => 10, 'is_active' => true]);
 
-        $this->post('/daftar', [
+        $this->register([
             'name' => 'Anak Terbuka',
             'age' => 9,
             'phone' => '0111111111',
@@ -216,7 +283,15 @@ class PublicRegistrationTest extends TestCase
             'guardian_relationship' => 'Bapa',
         ])->assertSessionHasNoErrors();
 
-        $this->post('/daftar', [
+        $this->register([
+            'name' => 'Remaja Terbuka',
+            'age' => 15,
+            'phone' => '0113333333',
+            'house_id' => $house->id,
+            'sport_ids' => [$sport->id],
+        ])->assertSessionHasNoErrors();
+
+        $this->register([
             'name' => 'Dewasa Terbuka',
             'age' => 30,
             'phone' => '0112222222',
@@ -225,7 +300,50 @@ class PublicRegistrationTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('participants', ['name' => 'Anak Terbuka', 'category' => 'Kanak-Kanak']);
+        $this->assertDatabaseHas('participants', ['name' => 'Remaja Terbuka', 'category' => 'Remaja']);
         $this->assertDatabaseHas('participants', ['name' => 'Dewasa Terbuka', 'category' => 'Dewasa']);
+    }
+
+    public function test_teenager_can_register_for_teenager_event(): void
+    {
+        $house = House::create(['name' => 'Rumah Hijau']);
+        $sport = Sport::create(['name' => 'Acara Remaja', 'category' => 'Remaja', 'is_active' => true]);
+
+        $this->register([
+            'name' => 'Remaja Sukan',
+            'age' => 15,
+            'phone' => '0165555555',
+            'house_id' => $house->id,
+            'sport_ids' => [$sport->id],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('participants', [
+            'name' => 'Remaja Sukan',
+            'category' => 'Remaja',
+        ]);
+    }
+
+    public function test_teenager_cannot_register_for_child_or_adult_event(): void
+    {
+        $house = House::create(['name' => 'Rumah Hijau']);
+        $childSport = Sport::create(['name' => 'Acara Kanak Sahaja', 'category' => 'Kanak-Kanak', 'is_active' => true]);
+        $adultSport = Sport::create(['name' => 'Acara Dewasa Sahaja', 'category' => 'Dewasa', 'is_active' => true]);
+
+        $this->register([
+            'name' => 'Remaja Cuba Kanak',
+            'age' => 15,
+            'phone' => '0166666666',
+            'house_id' => $house->id,
+            'sport_ids' => [$childSport->id],
+        ])->assertSessionHasErrors('sport_ids.0');
+
+        $this->register([
+            'name' => 'Remaja Cuba Dewasa',
+            'age' => 15,
+            'phone' => '0167777777',
+            'house_id' => $house->id,
+            'sport_ids' => [$adultSport->id],
+        ])->assertSessionHasErrors('sport_ids.0');
     }
 
     public function test_full_event_places_public_registration_on_waiting_list(): void
@@ -243,7 +361,7 @@ class PublicRegistrationTest extends TestCase
         ]);
         SportRegistration::create(['participant_id' => $accepted->id, 'sport_id' => $sport->id, 'status' => 'Diterima']);
 
-        $this->post('/daftar', [
+        $this->register([
             'name' => 'Peserta Kedua',
             'age' => 21,
             'phone' => '0183456789',
@@ -263,7 +381,7 @@ class PublicRegistrationTest extends TestCase
         $firstSport = Sport::create(['name' => 'Catch the Scammer', 'category' => 'Terbuka', 'is_active' => true]);
         $secondSport = Sport::create(['name' => 'Radio Rosak', 'category' => 'Terbuka', 'is_active' => true]);
 
-        $this->post('/daftar', [
+        $this->register([
             'name' => 'Multi Budiman',
             'age' => 24,
             'phone' => '0121231234',
@@ -281,7 +399,7 @@ class PublicRegistrationTest extends TestCase
         $house = House::create(['name' => 'Rumah Merah']);
         $sport = Sport::create(['name' => 'Pindah Cawan', 'category' => 'Kanak-Kanak', 'is_active' => true]);
 
-        $this->post('/daftar', [
+        $this->register([
             'name' => 'Anak Tanpa Telefon',
             'age' => 9,
             'house_id' => $house->id,
@@ -296,6 +414,51 @@ class PublicRegistrationTest extends TestCase
             'phone' => null,
             'category' => 'Kanak-Kanak',
         ]);
+    }
+
+    public function test_registration_form_shows_captcha_and_consent_agreement(): void
+    {
+        $this->get('/daftar')
+            ->assertOk()
+            ->assertSee('Captcha')
+            ->assertSee('Saya mengesahkan maklumat yang diberikan adalah benar');
+    }
+
+    public function test_registration_requires_captcha_answer(): void
+    {
+        $house = House::create(['name' => 'Rumah Hijau']);
+        $sport = Sport::create(['name' => 'Balloon Rush', 'category' => 'Dewasa', 'is_active' => true]);
+
+        $this->withSession(['registration_captcha_answer' => 7])
+            ->post('/daftar', $this->adultPayload($house, $sport) + [
+                'consent_agreement' => '1',
+            ])
+            ->assertSessionHasErrors('captcha_answer');
+    }
+
+    public function test_registration_rejects_wrong_captcha_answer(): void
+    {
+        $house = House::create(['name' => 'Rumah Hijau']);
+        $sport = Sport::create(['name' => 'Balloon Rush', 'category' => 'Dewasa', 'is_active' => true]);
+
+        $this->withSession(['registration_captcha_answer' => 7])
+            ->post('/daftar', $this->adultPayload($house, $sport) + [
+                'captcha_answer' => 8,
+                'consent_agreement' => '1',
+            ])
+            ->assertSessionHasErrors('captcha_answer');
+    }
+
+    public function test_registration_requires_consent_agreement(): void
+    {
+        $house = House::create(['name' => 'Rumah Hijau']);
+        $sport = Sport::create(['name' => 'Balloon Rush', 'category' => 'Dewasa', 'is_active' => true]);
+
+        $this->withSession(['registration_captcha_answer' => 7])
+            ->post('/daftar', $this->adultPayload($house, $sport) + [
+                'captcha_answer' => 7,
+            ])
+            ->assertSessionHasErrors('consent_agreement');
     }
 
     public function test_registration_is_blocked_when_settings_close_it(): void

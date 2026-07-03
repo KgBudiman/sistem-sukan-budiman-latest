@@ -81,6 +81,6 @@ class Sport extends Model
 
     public function compatibleWithCategory(string $category): bool
     {
-        return $this->category === 'Terbuka' || $this->category === $category;
+        return $this->category === Participant::CATEGORY_OPEN || $this->category === $category;
     }
 }

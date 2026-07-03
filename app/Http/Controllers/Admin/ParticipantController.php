@@ -123,7 +123,7 @@ class ParticipantController extends Controller
     {
         $data = $request->validated();
         $category = Participant::categoryForAge((int) $data['age']);
-        $isChild = $category === 'Kanak-Kanak';
+        $isChild = $category === Participant::CATEGORY_CHILD;
         $guardian = $participant->guardian;
 
         if ($isChild) {

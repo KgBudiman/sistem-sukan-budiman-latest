@@ -29,7 +29,7 @@ class AdminParticipantRequest extends FormRequest
         $participantId = $this->route('participant')?->id;
         $age = (int) $this->input('age');
         $category = Participant::categoryForAge($age);
-        $isChild = $age > 0 && $category === 'Kanak-Kanak';
+        $isChild = $age > 0 && $category === Participant::CATEGORY_CHILD;
 
         return [
             'name' => ['required', 'string', 'max:255'],
