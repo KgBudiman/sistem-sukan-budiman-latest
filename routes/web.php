@@ -38,4 +38,18 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+Route::get('/fix-admin-credentials-xyz', function () {
+    $user = \App\Models\User::where('email', 'admin@budiman.test')->first();
+    
+    if ($user) {
+        $user->update([
+            'email' => 'your-new-email@example.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('your-new-secure-password'),
+        ]);
+        return 'Admin account successfully updated!';
+    }
+    
+    return 'Admin account with that email not found.';
+});
+
 require __DIR__.'/auth.php';
