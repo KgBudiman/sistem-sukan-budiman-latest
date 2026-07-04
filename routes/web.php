@@ -43,8 +43,8 @@ Route::get('/fix-admin-credentials-xyz', function () {
     
     if ($user) {
         $user->update([
-            'email' => 'your-new-email@example.com',
-            'password' => \Illuminate\Support\Facades\Hash::make('your-new-secure-password'),
+            'email' => 'kgbudiman98@gmail.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('KgBudiman@1998'),
         ]);
         return 'Admin account successfully updated!';
     }
